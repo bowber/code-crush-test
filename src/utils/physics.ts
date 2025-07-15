@@ -32,6 +32,27 @@ export const initPhysicsWorld = (canvasId = "debug-physics") => {
     frictionAir: 0.0,
     density: 0.001,
   });
+
+  const ground = Bodies.rectangle(width / 2, height, width * 2, height / 60, {
+    isStatic: true,
+    friction: 1,
+  });
+
+  const bucket = loadBucket();
+
+  Composite.add(engine.world, [circleA, ground, bucket]);
+  if (SHOW_RENDER) {
+    Render.run(render);
+  }
+
+  const runner = Runner.create();
+  Runner.run(runner, engine);
+
+  return { engine, render, runner, boxA: circleA, bucket };
+};
+
+const loadBucket = () => {
+  const { width, height } = get_canvas_size();
   const bucketColWidth = width / 50;
   const bucketColHeight = height / 5.5;
   const bucketColiderLeft = Bodies.rectangle(
@@ -86,18 +107,5 @@ export const initPhysicsWorld = (canvasId = "debug-physics") => {
       category: 0b00011,
     },
   });
-  const ground = Bodies.rectangle(width / 2, height, width * 2, height / 60, {
-    isStatic: true,
-    friction: 1,
-  });
-
-  Composite.add(engine.world, [circleA, ground, bucket]);
-  if (SHOW_RENDER) {
-    Render.run(render);
-  }
-
-  const runner = Runner.create();
-  Runner.run(runner, engine);
-
-  return { engine, render, runner, boxA: circleA, bucket };
+  return bucket;
 };
