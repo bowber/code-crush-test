@@ -2,3 +2,9 @@ body {
   margin: 0;
   overflow: hidden;
 }
+
+#root {
+  display: flex;
+  justify-content: center;
+  background: #000;
+}
