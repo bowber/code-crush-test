@@ -1,5 +1,4 @@
 import {
-  Euler,
   InstancedMesh,
   Matrix4,
   Mesh,
@@ -11,10 +10,19 @@ import {
   Vector3,
   WebGLRenderer,
 } from "three";
+import {
+  get_canvas_size,
+  mapBodyToInstancedMeshPosition,
+  mapMeshToBodyPosition,
+} from "./helpers";
+import { initPhysicsWorld } from "./physics";
 import { DragControls } from "three/examples/jsm/Addons.js";
+
 const BUCKET_GROUND_Y = -0.75; // The y position of the bucket on the ground
 const BUCKET_MOVEMENT_BOUNDS = 0.75; // The x bounds for the bucket movement
+
 const loader = new TextureLoader();
+
 const loadBackground = () => {
   const txt = loader.load("/bg.webp");
   const bg = new Mesh(
@@ -77,7 +85,10 @@ const loadPopcorns = (type: "golden" | "brown" = "golden") => {
 const loadGoldenPopcorns = () => loadPopcorns("golden");
 const loadBrownPopcorns = () => loadPopcorns("brown");
 
-export const initGameWorld = (canvasId = "webgl") => {
+export const initGameWorld = (
+  canvasId = "webgl",
+  physicsCanvasId = "debug-physics"
+) => {
   const canvas = document.getElementById(canvasId);
   if (canvas === null) {
     throw new Error(`Canvas with id ${canvasId} not found`);
@@ -92,56 +103,72 @@ export const initGameWorld = (canvasId = "webgl") => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setClearColor(0x000000, 1); // Set background color to black
+  const { width, height } = get_canvas_size();
 
   const camera = new OrthographicCamera();
   camera.position.set(0, 0, 100); // Set camera position
   camera.lookAt(0, 0, 0); // Look at the center of the scene
 
-  const bucket = loadBucket();
-
-  const bg = loadBackground();
-  scene.add(bg);
-  scene.add(bucket); // Add a sample object to the scene
   scene.add(camera);
 
   renderer.render(scene, camera); // Initial render
   const updateSize = () => {
-    const aspect = 600 / 1000; // Maintain aspect ratio of 600/1000
-    const width = window.innerHeight * aspect;
-    const height = window.innerHeight;
     renderer.setSize(width, height);
     camera.updateProjectionMatrix();
     renderer.render(scene, camera);
   };
   updateSize(); // Initial size update
-  window.addEventListener("resize", updateSize);
 
-  //  Controls
-  const controls = new DragControls([bucket], camera, document.body);
-  // prevent y movement
-  controls.addEventListener("drag", (event) => {
-    event.object.position.y = BUCKET_GROUND_Y; // Keep the object on the ground
-    // Keep the object within x bounds
-    event.object.position.x = Math.max(
-      -BUCKET_MOVEMENT_BOUNDS,
-      Math.min(BUCKET_MOVEMENT_BOUNDS, event.object.position.x)
-    );
+  //   Initialize physics engine
+  const physicsWorld = initPhysicsWorld(physicsCanvasId);
+
+  // Load assets and add them to the scene
+  const assets = loadGameAssets();
+  Object.values(assets).forEach((asset) => {
+    scene.add(asset);
   });
 
+  // Drag Control
+  const dragControl = new DragControls([assets.bucket], camera, document.body);
+  dragControl.addEventListener("drag", (event) => {
+    const bucket = event.object as Mesh;
+    // Clamp the bucket's x position to the defined bounds
+    bucket.position.x = Math.max(
+      -BUCKET_MOVEMENT_BOUNDS,
+      Math.min(BUCKET_MOVEMENT_BOUNDS, bucket.position.x)
+    );
+    // Set the y position to the ground level
+    bucket.position.y = BUCKET_GROUND_Y;
+    mapMeshToBodyPosition(bucket, physicsWorld.bucket);
+  });
   // Game loop
   const animate = () => {
     requestAnimationFrame(animate);
-    // Update game logic here
+
+    mapBodyToInstancedMeshPosition(physicsWorld.boxA, assets.brownPopcornIM, 0);
+    mapMeshToBodyPosition(assets.bucket, physicsWorld.bucket);
+    assets.brownPopcornIM.instanceMatrix.needsUpdate = true;
     renderer.render(scene, camera);
   };
   animate();
 
+  return { renderer, scene, canvas, camera, assets, physicsWorld };
+};
+
+const loadGameAssets = () => {
+  // Load background
+  const bg = loadBackground();
+  // Load bucket
+  const bucket = loadBucket();
   // Load golden popcorns
   const popcornIM = loadGoldenPopcorns();
-  scene.add(popcornIM);
   // Load brown popcorns
   const brownPopcornIM = loadBrownPopcorns();
-  scene.add(brownPopcornIM);
 
-  return { renderer, scene, canvas };
+  return {
+    bg,
+    bucket,
+    popcornIM,
+    brownPopcornIM,
+  };
 };

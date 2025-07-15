@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { initGameWorld } from './utils/game';
 
 function App() {
-  const [count, setCount] = useState(0)
   let gameWorld: ReturnType<typeof initGameWorld>;
 
   useEffect(() => {
@@ -13,7 +12,10 @@ function App() {
   }, []);
 
   return (
-    <canvas id="webgl"></canvas>
+    <>
+      <canvas id="webgl"></canvas>
+      <canvas id="debug-physics"></canvas>
+    </>
   )
 }
 
