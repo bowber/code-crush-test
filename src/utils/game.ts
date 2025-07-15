@@ -55,6 +55,7 @@ const loadBucket = () => {
     )
   );
   bucket.position.set(0, BUCKET_GROUND_Y, 0); // Position the bucket above the ground
+  bucket.children[0].position.set(0, 0, 10); // Position the front part of the bucket in front of the back part
   return bucket;
 };
 
@@ -93,7 +94,6 @@ export const initGameWorld = (
   if (canvas === null) {
     throw new Error(`Canvas with id ${canvasId} not found`);
   }
-  console.assert(canvas !== null, `Canvas with id ${canvasId} not found`);
   const renderer = new WebGLRenderer({
     canvas,
     antialias: true,
@@ -139,7 +139,6 @@ export const initGameWorld = (
     );
     // Set the y position to the ground level
     bucket.position.y = BUCKET_GROUND_Y;
-    mapMeshToBodyPosition(bucket, physicsWorld.bucket);
   });
   // Game loop
   const animate = () => {
