@@ -1,8 +1,9 @@
 import { Bodies, Body, Composite, Engine, Render, Runner } from "matter-js";
 import { get_canvas_size } from "./helpers";
+import { DEBUG_PHYSICS } from "./config";
 
 // Only show the physics debug renderer in development mode
-const SHOW_RENDER = import.meta.env.PROD === false;
+const SHOW_RENDER = DEBUG_PHYSICS;
 
 export const initPhysicsWorld = (canvasId = "debug-physics") => {
   const canvas = document.getElementById(canvasId);
