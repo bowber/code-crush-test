@@ -1,4 +1,12 @@
-import { Bodies, Body, Composite, Engine, Render, Runner } from "matter-js";
+import {
+  Bodies,
+  Body,
+  Composite,
+  Engine,
+  Events,
+  Render,
+  Runner,
+} from "matter-js";
 import { get_canvas_size } from "./helpers";
 import { DEBUG_PHYSICS } from "./config";
 
@@ -13,7 +21,7 @@ export const initPhysicsWorld = (canvasId = "debug-physics") => {
   const engine = Engine.create({
     gravity: {
       x: 0,
-      y: 0.01,
+      y: 0.0,
     },
   });
   const { width, height } = get_canvas_size();
@@ -27,21 +35,14 @@ export const initPhysicsWorld = (canvasId = "debug-physics") => {
     canvas,
     engine,
   });
-  const circleA = Bodies.circle(222, 0, 20, {
-    inertia: Infinity,
-    force: { x: 0, y: 0.01 },
-    frictionAir: 0.0,
-    density: 0.001,
-  });
-
   const ground = Bodies.rectangle(width / 2, height, width * 2, height / 60, {
     isStatic: true,
     friction: 1,
   });
 
-  const bucket = loadBucket();
+  const { bucket } = loadBucket();
 
-  Composite.add(engine.world, [circleA, ground, bucket]);
+  Composite.add(engine.world, [ground, bucket]);
   if (SHOW_RENDER) {
     Render.run(render);
   }
@@ -49,7 +50,14 @@ export const initPhysicsWorld = (canvasId = "debug-physics") => {
   const runner = Runner.create();
   Runner.run(runner, engine);
 
-  return { engine, render, runner, boxA: circleA, bucket };
+  const addPopcorn = (x: number, y: number, label: string) => {
+    const newPopcorn = createPopcorn(x, y);
+    newPopcorn.label = label;
+    Composite.add(engine.world, newPopcorn);
+    return newPopcorn;
+  };
+
+  return { engine, render, runner, bucket, addPopcorn };
 };
 
 const loadBucket = () => {
@@ -58,55 +66,73 @@ const loadBucket = () => {
   const bucketColHeight = height / 5.5;
   const bucketColiderLeft = Bodies.rectangle(
     0,
-    height,
+    height - bucketColHeight / 2,
     bucketColWidth,
     bucketColHeight,
     {
       angle: -Math.PI / 25,
+      frictionStatic: Infinity, // Don't allow the bucket parts to move
       isStatic: true,
-      collisionFilter: {
-        group: -2,
-        category: 0b00011,
-      },
     }
   );
   const bucketColiderRight = Bodies.rectangle(
     width / 5,
-    height,
+    height - bucketColHeight / 2,
     bucketColWidth,
     bucketColHeight,
     {
       angle: Math.PI / 25,
+      frictionStatic: Infinity, // Don't allow the bucket parts to move
       isStatic: true,
-      collisionFilter: {
-        group: -2,
-        category: 0b00011,
-      },
+    }
+  );
+  const bucketSensor = Bodies.rectangle(
+    width / 10,
+    height - bucketColHeight * 0.9,
+    bucketColHeight * 0.75,
+    bucketColWidth,
+    {
+      isStatic: true,
+      isSensor: true,
+      label: "bucketSensor",
+      frictionStatic: Infinity, // Don't allow the bucket parts to move
     }
   );
   const bucketBottom = Bodies.rectangle(
     width / 10,
     height,
-    bucketColHeight / 2,
+    bucketColHeight * 0.75,
     bucketColWidth,
     {
       isStatic: true,
-      collisionFilter: {
-        group: -2,
-        category: 0b00011,
-      },
+      isSensor: true,
+      frictionStatic: Infinity, // Don't allow the bucket parts to move
     }
   );
   const bucket = Body.create({
-    // frictionAir: Infinity,
-    parts: [bucketColiderLeft, bucketColiderRight, bucketBottom],
-    friction: 1,
+    parts: [bucketSensor, bucketColiderLeft, bucketColiderRight, bucketBottom],
+    restitution: 1,
+    density: 999999999999999999,
+    frictionStatic: Infinity, // Don't allow the bucket parts to move
+  });
+  return {
+    bucket,
+  };
+};
+
+const createPopcorn = (x: number, y: number) => {
+  const { width } = get_canvas_size();
+  const popcorn = Bodies.circle(x, y, width / 25, {
     inertia: Infinity,
-    isSensor: true,
+    force: {
+      x: 0,
+      y: 0.0002, // Adjusted to a more reasonable value
+    },
+    frictionAir: 0.0,
+    mass: 0.01,
     collisionFilter: {
-      group: 2,
-      category: 0b00011,
+      group: -1,
     },
   });
-  return bucket;
+  return popcorn;
 };

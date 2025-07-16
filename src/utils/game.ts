@@ -17,10 +17,14 @@ import {
 } from "./helpers";
 import { initPhysicsWorld } from "./physics";
 import { DragControls } from "three/examples/jsm/Addons.js";
+import { Events, World, type Body } from "matter-js";
 
 const BUCKET_GROUND_Y = -0.75; // The y position of the bucket on the ground
 const BUCKET_MOVEMENT_BOUNDS = 0.75; // The x bounds for the bucket movement
-
+const IM_MAX_COUNT = 50; // Maximum number of instanced meshes
+const GOLDEN_SCORE_INCREMENT = 2; // Score increment for golden popcorn
+const BROWN_SCORE_INCREMENT = -1; // Score increment for brown popcorn
+const POPCORN_GENERATION_INTERVAL = 1000; // Interval in milliseconds for generating popcorn
 const loader = new TextureLoader();
 
 const loadBackground = () => {
@@ -67,7 +71,7 @@ const loadPopcorns = (type: "golden" | "brown" = "golden") => {
       map: txt,
       transparent: true,
     }),
-    200
+    IM_MAX_COUNT
   );
 
   // Mix in random rotation and scale
@@ -78,6 +82,7 @@ const loadPopcorns = (type: "golden" | "brown" = "golden") => {
     mtx.makeRotationY(Math.random() * Math.PI * 2);
     mtx.makeRotationZ(Math.random() * Math.PI * 2);
     mtx.scale(new Vector3(scale, scale, scale));
+    // mtx.setPosition(-10, 0, 0); // Initial position off-screen
     popcornIM.setMatrixAt(i, mtx);
   }
   return popcornIM;
@@ -86,10 +91,15 @@ const loadPopcorns = (type: "golden" | "brown" = "golden") => {
 const loadGoldenPopcorns = () => loadPopcorns("golden");
 const loadBrownPopcorns = () => loadPopcorns("brown");
 
-export const initGameWorld = (
-  canvasId = "webgl",
-  physicsCanvasId = "debug-physics"
-) => {
+export const initGameWorld = (opts: {
+  canvasId?: string;
+  physicsCanvasId?: string;
+  onScoreIncrement?: (increment: number) => void;
+  onGameOver: () => void;
+}) => {
+  const canvasId = opts.canvasId || "webgl";
+  const physicsCanvasId = opts.physicsCanvasId || "debug-physics";
+  const onGameOver = opts.onGameOver;
   const canvas = document.getElementById(canvasId);
   if (canvas === null) {
     throw new Error(`Canvas with id ${canvasId} not found`);
@@ -122,6 +132,46 @@ export const initGameWorld = (
   //   Initialize physics engine
   const physicsWorld = initPhysicsWorld(physicsCanvasId);
 
+  // Add Events for collision detection
+  Events.on(physicsWorld.engine, "collisionStart", (event) => {
+    event.pairs.forEach((pair) => {
+      const { bodyA, bodyB } = pair;
+
+      // Remove popcorn whenever it collides with any body
+      if (bodyA.label.startsWith("popcorn-")) {
+        World.remove(physicsWorld.engine.world, bodyA, true);
+      }
+      if (bodyB.label.startsWith("popcorn-")) {
+        World.remove(physicsWorld.engine.world, bodyB, true);
+      }
+
+      const bucket =
+        bodyA.label === "bucketSensor"
+          ? bodyA
+          : bodyB.label === "bucketSensor"
+          ? bodyB
+          : null;
+      if (!bucket) return;
+      const isGoldenPopcorn =
+        bodyA.label.startsWith("golden-") || bodyB.label.startsWith("golden-");
+      const isBrownPopcorn =
+        bodyA.label.startsWith("brown-") || bodyB.label.startsWith("brown-");
+      if (isGoldenPopcorn) {
+        opts.onScoreIncrement?.(GOLDEN_SCORE_INCREMENT); // Increment score for golden popcorn
+        console.log(
+          `Collected golden popcorn: ${bodyA.label} or ${bodyB.label}`
+        );
+      } else if (isBrownPopcorn) {
+        opts.onScoreIncrement?.(BROWN_SCORE_INCREMENT); // Increment score for brown popcorn
+        console.log(
+          `Collected brown popcorn: ${bodyA.label} or ${bodyB.label}`
+        );
+      } else {
+        console.warn("Unknown body collected:", bodyA, bodyB);
+      }
+    });
+  });
+
   // Load assets and add them to the scene
   const assets = loadGameAssets();
   Object.values(assets).forEach((asset) => {
@@ -129,7 +179,11 @@ export const initGameWorld = (
   });
 
   // Drag Control
-  const dragControl = new DragControls([assets.bucket], camera, document.body);
+  const dragControl = new DragControls(
+    [assets.bucket],
+    camera,
+    renderer.domElement
+  );
   dragControl.addEventListener("drag", (event) => {
     const bucket = event.object as Mesh;
     // Clamp the bucket's x position to the defined bounds
@@ -140,16 +194,76 @@ export const initGameWorld = (
     // Set the y position to the ground level
     bucket.position.y = BUCKET_GROUND_Y;
   });
+  let lastGoldenPopcornIndex = 0;
+  let lastBrownPopcornIndex = 0;
+  const brownPopcornMap = {} as Record<string, { body: Body }>;
+  const goldenPopcornMap = {} as Record<string, { body: Body }>;
+  const generatePopcorn = (type: "golden" | "brown") => {
+    const map = type === "golden" ? goldenPopcornMap : brownPopcornMap;
+    let index =
+      type === "golden"
+        ? lastGoldenPopcornIndex + 1
+        : lastBrownPopcornIndex + 1;
+    if (index >= IM_MAX_COUNT) {
+      index = 0; // Reset index if it exceeds the maximum count, this is useful for testing unlimited popcorn generation
+      console.warn(`Maximum popcorn instances reached for type: ${type}`);
+      return;
+    }
+    const newBody = physicsWorld.addPopcorn(
+      Math.random() * width * 0.8 + width * 0.1, // Random x position within bounds
+      0,
+      `${type}-${index}` // e.g. "golden-0", "brown-1"
+    );
+
+    // Remove old body if it exists
+    const oldBody = map[index];
+    if (oldBody?.body) {
+      World.remove(physicsWorld.engine.world, oldBody.body);
+    }
+    map[index] = { body: newBody };
+
+    if (type === "golden") {
+      lastGoldenPopcornIndex = index;
+    }
+    if (type === "brown") {
+      lastBrownPopcornIndex = index;
+    }
+  };
   // Game loop
   const animate = () => {
     requestAnimationFrame(animate);
 
-    mapBodyToInstancedMeshPosition(physicsWorld.boxA, assets.brownPopcornIM, 0);
+    Object.entries(brownPopcornMap).forEach(([key, { body }]) => {
+      mapBodyToInstancedMeshPosition(
+        body,
+        assets.brownPopcornIM,
+        parseInt(key)
+      );
+    });
+    Object.entries(goldenPopcornMap).forEach(([key, { body }]) => {
+      mapBodyToInstancedMeshPosition(
+        body,
+        assets.goldenPopcornIM,
+        parseInt(key)
+      );
+    });
+
+    // Update bucket physics
     mapMeshToBodyPosition(assets.bucket, physicsWorld.bucket);
     assets.brownPopcornIM.instanceMatrix.needsUpdate = true;
+    assets.goldenPopcornIM.instanceMatrix.needsUpdate = true;
     renderer.render(scene, camera);
   };
   animate();
+
+  let interval = setInterval(() => {
+    generatePopcorn("golden");
+    generatePopcorn("brown");
+    if (lastBrownPopcornIndex >= IM_MAX_COUNT - 1) {
+      clearInterval(interval);
+      onGameOver();
+    }
+  }, POPCORN_GENERATION_INTERVAL); // Generate popcorn every N second
 
   return { renderer, scene, canvas, camera, assets, physicsWorld };
 };
@@ -160,14 +274,14 @@ const loadGameAssets = () => {
   // Load bucket
   const bucket = loadBucket();
   // Load golden popcorns
-  const popcornIM = loadGoldenPopcorns();
+  const goldenPopcornIM = loadGoldenPopcorns();
   // Load brown popcorns
   const brownPopcornIM = loadBrownPopcorns();
 
   return {
     bg,
     bucket,
-    popcornIM,
+    goldenPopcornIM,
     brownPopcornIM,
   };
 };
