@@ -1,14 +1,17 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { initGameWorld } from './utils/game';
+import { isSignedIn, signin, subscribeTopScores, updateHighScore, type Score } from './api/firebase';
+
 function App() {
   const gameWorld = useRef<ReturnType<typeof initGameWorld>>(null);
   const score = useRef(0);
   const scoreboardValueRef = useRef<HTMLHeadingElement>(null);
+  const [topScores, setTopScores] = useState<Score[]>([]);
   const isGameOver = useRef(false);
 
   const onGameOver = () => {
     isGameOver.current = true;
-    alert(`Game Over! Your score: ${score.current}`);
+    updateHighScore(score.current)
   }
 
   const onScoreIncrement = (increment: number) => {
@@ -27,6 +30,32 @@ function App() {
     gameWorld.current = initGameWorld({ onGameOver, onScoreIncrement });
   }, []);
 
+  useEffect(() => {
+    let unsubscribe: () => void = () => { };
+    subscribeTopScores((docs: Score[]) => {
+      setTopScores(docs.sort((a, b) => b.highScore - a.highScore).slice(0, 10)); // Sort and limit to top 10 scores
+    }).then((unsub) => {
+      unsubscribe = unsub;
+    });
+    return () => {
+      unsubscribe(); // Clean up subscription on unmount
+    };
+  }, []);
+
+  // Redirect to sign-in if not authenticated
+  let isCheckingAuth = useRef(false);
+  useEffect(() => {
+    if (isCheckingAuth.current) return; // Prevent multiple checks
+    isCheckingAuth.current = true;
+    isSignedIn().then((signedIn) => {
+      if (!signedIn) {
+        signin().catch((error) => {
+          console.error("Error signing in:", error);
+        });
+      }
+    });
+  }, []);
+
   return (
     <>
       <canvas id="webgl"></canvas>
@@ -34,6 +63,19 @@ function App() {
       <div id="scoreboard">
         <h1 ref={scoreboardValueRef}>Score: {score.current}</h1>
       </div>
+      <div id="top-scores">
+        <h2>Top Highscores</h2>
+        {/* Top scores will be displayed here */}
+        <div>
+          {topScores.map((score, index) => (
+            <div key={index}>
+              <span>{score.userName}: </span>
+              <span>{score.highScore}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <a href="/" id="replay-button">Replay</a>
     </>
   )
 }

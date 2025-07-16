@@ -22,7 +22,7 @@ import { Events, World, type Body } from "matter-js";
 
 const BUCKET_GROUND_Y = -0.75; // The y position of the bucket on the ground
 const BUCKET_MOVEMENT_BOUNDS = 0.75; // The x bounds for the bucket movement
-const IM_MAX_COUNT = 50; // Maximum number of instanced meshes
+const IM_MAX_COUNT = 20; // Maximum number of instanced meshes
 const GOLDEN_SCORE_INCREMENT = 2; // Score increment for golden popcorn
 const BROWN_SCORE_INCREMENT = -1; // Score increment for brown popcorn
 const POPCORN_GENERATION_INTERVAL = 1000; // Interval in milliseconds for generating popcorn
