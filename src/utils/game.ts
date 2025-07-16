@@ -12,6 +12,7 @@ import {
 } from "three";
 import {
   get_canvas_size,
+  hideInstancedMeshAt,
   mapBodyToInstancedMeshPosition,
   mapMeshToBodyPosition,
 } from "./helpers";
@@ -85,6 +86,7 @@ const loadPopcorns = (type: "golden" | "brown" = "golden") => {
     // mtx.setPosition(-10, 0, 0); // Initial position off-screen
     popcornIM.setMatrixAt(i, mtx);
   }
+  popcornIM.count = 0; // Set initial count to 0
   return popcornIM;
 };
 
@@ -137,27 +139,40 @@ export const initGameWorld = (opts: {
     event.pairs.forEach((pair) => {
       const { bodyA, bodyB } = pair;
 
-      // Remove popcorn whenever it collides with any body
-      if (bodyA.label.startsWith("popcorn-")) {
-        World.remove(physicsWorld.engine.world, bodyA, true);
-      }
-      if (bodyB.label.startsWith("popcorn-")) {
-        World.remove(physicsWorld.engine.world, bodyB, true);
-      }
-
+      const ground =
+        bodyA.label === "ground"
+          ? bodyA
+          : bodyB.label === "ground"
+          ? bodyB
+          : null;
       const bucket =
         bodyA.label === "bucketSensor"
           ? bodyA
           : bodyB.label === "bucketSensor"
           ? bodyB
           : null;
+
+      // Remove popcorn whenever it collides with ground or bucketSensor
+      if (bucket || ground) {
+        // Remove the popcorn body
+        if (bodyA === bucket || bodyA === ground) {
+          World.remove(physicsWorld.engine.world, bodyB);
+        } else {
+          World.remove(physicsWorld.engine.world, bodyA);
+        }
+      }
+
       if (!bucket) return;
       const isGoldenPopcorn =
         bodyA.label.startsWith("golden-") || bodyB.label.startsWith("golden-");
       const isBrownPopcorn =
         bodyA.label.startsWith("brown-") || bodyB.label.startsWith("brown-");
+      const popcornBody = bodyA === bucket ? bodyB : bodyA;
       if (isGoldenPopcorn) {
         opts.onScoreIncrement?.(GOLDEN_SCORE_INCREMENT); // Increment score for golden popcorn
+        // Move the popcorn out of scene
+        const index = parseInt(popcornBody.label.split("-")[1]);
+        hideInstancedMeshAt(assets.goldenPopcornIM, index);
         console.log(
           `Collected golden popcorn: ${bodyA.label} or ${bodyB.label}`
         );
@@ -166,6 +181,8 @@ export const initGameWorld = (opts: {
         console.log(
           `Collected brown popcorn: ${bodyA.label} or ${bodyB.label}`
         );
+        const index = parseInt(popcornBody.label.split("-")[1]);
+        hideInstancedMeshAt(assets.brownPopcornIM, index);
       } else {
         console.warn("Unknown body collected:", bodyA, bodyB);
       }
@@ -198,8 +215,11 @@ export const initGameWorld = (opts: {
   let lastBrownPopcornIndex = 0;
   const brownPopcornMap = {} as Record<string, { body: Body }>;
   const goldenPopcornMap = {} as Record<string, { body: Body }>;
+
   const generatePopcorn = (type: "golden" | "brown") => {
     const map = type === "golden" ? goldenPopcornMap : brownPopcornMap;
+    const im =
+      type === "golden" ? assets.goldenPopcornIM : assets.brownPopcornIM;
     let index =
       type === "golden"
         ? lastGoldenPopcornIndex + 1
@@ -209,6 +229,9 @@ export const initGameWorld = (opts: {
       console.warn(`Maximum popcorn instances reached for type: ${type}`);
       return;
     }
+
+    im.count = index + 1; // Update the count of the instanced mesh
+
     const newBody = physicsWorld.addPopcorn(
       Math.random() * width * 0.8 + width * 0.1, // Random x position within bounds
       0,

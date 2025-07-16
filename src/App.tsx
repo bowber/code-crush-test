@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { initGameWorld } from './utils/game';
 function App() {
   let gameWorld: ReturnType<typeof initGameWorld>;

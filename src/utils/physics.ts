@@ -1,12 +1,4 @@
-import {
-  Bodies,
-  Body,
-  Composite,
-  Engine,
-  Events,
-  Render,
-  Runner,
-} from "matter-js";
+import { Bodies, Body, Composite, Engine, Render, Runner } from "matter-js";
 import { get_canvas_size } from "./helpers";
 import { DEBUG_PHYSICS } from "./config";
 
@@ -38,6 +30,7 @@ export const initPhysicsWorld = (canvasId = "debug-physics") => {
   const ground = Bodies.rectangle(width / 2, height, width * 2, height / 60, {
     isStatic: true,
     friction: 1,
+    label: "ground",
   });
 
   const { bucket } = loadBucket();
@@ -63,7 +56,7 @@ export const initPhysicsWorld = (canvasId = "debug-physics") => {
 const loadBucket = () => {
   const { width, height } = get_canvas_size();
   const bucketColWidth = width / 50;
-  const bucketColHeight = height / 5.5;
+  const bucketColHeight = height / 6;
   const bucketColiderLeft = Bodies.rectangle(
     0,
     height - bucketColHeight / 2,

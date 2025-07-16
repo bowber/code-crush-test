@@ -1,5 +1,5 @@
 import type Matter from "matter-js";
-import { Matrix4, type InstancedMesh, type Mesh } from "three";
+import { Matrix4, Vector3, type InstancedMesh, type Mesh } from "three";
 
 export const get_canvas_size = () => {
   const aspect = 600 / 1000; // Maintain aspect ratio of 600/1000
@@ -48,4 +48,11 @@ export const gameToPhysicsCoords = (x: number, y: number) => {
     x: ((x + 1) / 2) * width,
     y: ((1 - y) / 2) * height,
   };
+};
+
+export const hideInstancedMeshAt = (im: InstancedMesh, index: number) => {
+  const matrix = new Matrix4();
+  im.getMatrixAt(index, matrix);
+  matrix.scale(new Vector3(0, 0, 0)); // Scale to zero to hide
+  im.setMatrixAt(index, matrix);
 };
