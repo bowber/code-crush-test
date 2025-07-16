@@ -54,3 +54,20 @@ body {
 #top-scores > div {
   overflow-y: auto;
 }
+
+#replay-button {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  text-decoration: none;
+  border-radius: 5px;
+  font-size: 18px;
+}
+
+.hidden {
+  display: none;
+}

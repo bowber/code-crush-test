@@ -6,12 +6,16 @@ function App() {
   const gameWorld = useRef<ReturnType<typeof initGameWorld>>(null);
   const score = useRef(0);
   const scoreboardValueRef = useRef<HTMLHeadingElement>(null);
+  const replayButtonRef = useRef<HTMLAnchorElement>(null);
   const [topScores, setTopScores] = useState<Score[]>([]);
   const isGameOver = useRef(false);
 
   const onGameOver = () => {
     isGameOver.current = true;
     updateHighScore(score.current)
+
+    alert(`Game Over! Your score: ${score.current}`);
+    replayButtonRef.current?.classList.remove('hidden');
   }
 
   const onScoreIncrement = (increment: number) => {
@@ -75,7 +79,7 @@ function App() {
           ))}
         </div>
       </div>
-      <a href="/" id="replay-button">Replay</a>
+      <a href="/" id="replay-button" className='hidden' ref={replayButtonRef}>Replay</a>
     </>
   )
 }
