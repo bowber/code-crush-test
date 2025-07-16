@@ -134,67 +134,18 @@ export const initGameWorld = (opts: {
   //   Initialize physics engine
   const physicsWorld = initPhysicsWorld(physicsCanvasId);
 
-  // Add Events for collision detection
-  Events.on(physicsWorld.engine, "collisionStart", (event) => {
-    event.pairs.forEach((pair) => {
-      const { bodyA, bodyB } = pair;
-
-      const ground =
-        bodyA.label === "ground"
-          ? bodyA
-          : bodyB.label === "ground"
-          ? bodyB
-          : null;
-      const bucket =
-        bodyA.label === "bucketSensor"
-          ? bodyA
-          : bodyB.label === "bucketSensor"
-          ? bodyB
-          : null;
-
-      // Remove popcorn whenever it collides with ground or bucketSensor
-      if (bucket || ground) {
-        // Remove the popcorn body
-        if (bodyA === bucket || bodyA === ground) {
-          World.remove(physicsWorld.engine.world, bodyB);
-        } else {
-          World.remove(physicsWorld.engine.world, bodyA);
-        }
-      }
-
-      if (!bucket) return;
-      const isGoldenPopcorn =
-        bodyA.label.startsWith("golden-") || bodyB.label.startsWith("golden-");
-      const isBrownPopcorn =
-        bodyA.label.startsWith("brown-") || bodyB.label.startsWith("brown-");
-      const popcornBody = bodyA === bucket ? bodyB : bodyA;
-      if (isGoldenPopcorn) {
-        opts.onScoreIncrement?.(GOLDEN_SCORE_INCREMENT); // Increment score for golden popcorn
-        // Move the popcorn out of scene
-        const index = parseInt(popcornBody.label.split("-")[1]);
-        hideInstancedMeshAt(assets.goldenPopcornIM, index);
-        console.log(
-          `Collected golden popcorn: ${bodyA.label} or ${bodyB.label}`
-        );
-      } else if (isBrownPopcorn) {
-        opts.onScoreIncrement?.(BROWN_SCORE_INCREMENT); // Increment score for brown popcorn
-        console.log(
-          `Collected brown popcorn: ${bodyA.label} or ${bodyB.label}`
-        );
-        const index = parseInt(popcornBody.label.split("-")[1]);
-        hideInstancedMeshAt(assets.brownPopcornIM, index);
-      } else {
-        console.warn("Unknown body collected:", bodyA, bodyB);
-      }
-    });
-  });
-
   // Load assets and add them to the scene
   const assets = loadGameAssets();
   Object.values(assets).forEach((asset) => {
     scene.add(asset);
   });
 
+  // Listen to events
+  listenToEvents({
+    physicsWorld,
+    assets,
+    opts,
+  });
   // Drag Control
   const dragControl = new DragControls(
     [assets.bucket],
@@ -307,4 +258,69 @@ const loadGameAssets = () => {
     goldenPopcornIM,
     brownPopcornIM,
   };
+};
+
+const listenToEvents = ({
+  physicsWorld,
+  assets,
+  opts,
+}: {
+  physicsWorld: ReturnType<typeof initPhysicsWorld>;
+  assets: ReturnType<typeof loadGameAssets>;
+  opts: { onScoreIncrement?: (increment: number) => void };
+}) => {
+  // Add Events for collision detection
+  Events.on(physicsWorld.engine, "collisionStart", (event) => {
+    event.pairs.forEach((pair) => {
+      const { bodyA, bodyB } = pair;
+
+      const ground =
+        bodyA.label === "ground"
+          ? bodyA
+          : bodyB.label === "ground"
+          ? bodyB
+          : null;
+      const bucket =
+        bodyA.label === "bucketSensor"
+          ? bodyA
+          : bodyB.label === "bucketSensor"
+          ? bodyB
+          : null;
+
+      // Remove popcorn whenever it collides with ground or bucketSensor
+      if (bucket || ground) {
+        // Remove the popcorn body
+        if (bodyA === bucket || bodyA === ground) {
+          World.remove(physicsWorld.engine.world, bodyB);
+        } else {
+          World.remove(physicsWorld.engine.world, bodyA);
+        }
+      }
+
+      if (!bucket) return;
+      const isGoldenPopcorn =
+        bodyA.label.startsWith("golden-") || bodyB.label.startsWith("golden-");
+      const isBrownPopcorn =
+        bodyA.label.startsWith("brown-") || bodyB.label.startsWith("brown-");
+      const popcornBody = bodyA === bucket ? bodyB : bodyA;
+      if (isGoldenPopcorn) {
+        opts.onScoreIncrement?.(GOLDEN_SCORE_INCREMENT); // Increment score for golden popcorn
+        // Move the popcorn out of scene
+        const index = parseInt(popcornBody.label.split("-")[1]);
+        hideInstancedMeshAt(assets.goldenPopcornIM, index);
+        console.log(
+          `Collected golden popcorn: ${bodyA.label} or ${bodyB.label}`
+        );
+      } else if (isBrownPopcorn) {
+        opts.onScoreIncrement?.(BROWN_SCORE_INCREMENT); // Increment score for brown popcorn
+        console.log(
+          `Collected brown popcorn: ${bodyA.label} or ${bodyB.label}`
+        );
+        const index = parseInt(popcornBody.label.split("-")[1]);
+        hideInstancedMeshAt(assets.brownPopcornIM, index);
+      } else {
+        console.warn("Unknown body collected:", bodyA, bodyB);
+      }
+    });
+  });
 };
