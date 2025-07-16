@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { initGameWorld } from './utils/game';
 function App() {
-  let gameWorld: ReturnType<typeof initGameWorld>;
+  const gameWorld = useRef<ReturnType<typeof initGameWorld>>(null);
   const score = useRef(0);
 
   const onGameOver = () => {
@@ -14,10 +14,10 @@ function App() {
   };
 
   useEffect(() => {
-    if (gameWorld) {
+    if (gameWorld.current !== null) {
       return; // Prevent re-initialization
     }
-    gameWorld = initGameWorld({ onGameOver, onScoreIncrement });
+    gameWorld.current = initGameWorld({ onGameOver, onScoreIncrement });
   }, []);
 
   return (

@@ -211,8 +211,8 @@ export const initGameWorld = (opts: {
     // Set the y position to the ground level
     bucket.position.y = BUCKET_GROUND_Y;
   });
-  let lastGoldenPopcornIndex = 0;
-  let lastBrownPopcornIndex = 0;
+  let lastGoldenPopcornIndex = -1;
+  let lastBrownPopcornIndex = -1;
   const brownPopcornMap = {} as Record<string, { body: Body }>;
   const goldenPopcornMap = {} as Record<string, { body: Body }>;
 
