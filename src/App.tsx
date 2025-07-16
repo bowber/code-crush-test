@@ -10,6 +10,8 @@ function App() {
   const [topScores, setTopScores] = useState<Score[]>([]);
   const isGameOver = useRef(false);
 
+  const [isPlaying, setIsPlaying] = useState(false);
+
   const onGameOver = () => {
     isGameOver.current = true;
     updateHighScore(score.current)
@@ -28,11 +30,12 @@ function App() {
   };
 
   useEffect(() => {
+    if (!isPlaying) return; // Prevent initialization if not playing
     if (gameWorld.current !== null) {
       return; // Prevent re-initialization
     }
     gameWorld.current = initGameWorld({ onGameOver, onScoreIncrement });
-  }, []);
+  }, [isPlaying]);
 
   useEffect(() => {
     let unsubscribe: () => void = () => { };
@@ -47,18 +50,14 @@ function App() {
   }, []);
 
   // Redirect to sign-in if not authenticated
-  let isCheckingAuth = useRef(false);
-  useEffect(() => {
-    if (isCheckingAuth.current) return; // Prevent multiple checks
-    isCheckingAuth.current = true;
-    isSignedIn().then((signedIn) => {
-      if (!signedIn) {
-        signin().catch((error) => {
-          console.error("Error signing in:", error);
-        });
-      }
-    });
-  }, []);
+  const play = async () => {
+    const signedIn = await isSignedIn();
+    if (!signedIn) {
+      await signin();
+      return; // Wait for sign-in to complete
+    }
+    setIsPlaying(true);
+  }
 
   return (
     <>
@@ -80,6 +79,7 @@ function App() {
         </div>
       </div>
       <a href="/" id="replay-button" className='hidden' ref={replayButtonRef}>Replay</a>
+      <button id="play-button" onClick={play} className={isPlaying ? 'hidden' : ''}>Play</button>
     </>
   )
 }
